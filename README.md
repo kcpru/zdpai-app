@@ -1,8 +1,8 @@
 # zdpai projekt
 
-Frontend: Next.js
-Backend: Python
-Database: Postgresql
+- Frontend: Next.js
+- Backend: Python
+- Database: Postgresql
 
 <img width="2406" height="1490" alt="s1" src="https://github.com/user-attachments/assets/562ade3f-dc5c-40f2-bfb6-0c900f757969" />
 
