@@ -1,0 +1,33 @@
+services:
+  todo2-postgres:
+    image: postgres:16
+    container_name: todo2-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: apppassword
+      POSTGRES_DB: todo2db
+    ports:
+      - "5432:5432"
+    volumes:
+      - todo2_postgres_data:/var/lib/postgresql/data
+
+  backend-python:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: todo2-backend-python
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      SEED_ON_STARTUP: "true"
+    depends_on:
+      - todo2-postgres
+    volumes:
+      - ./user_avatars:/app/user_avatars
+
+volumes:
+  todo2_postgres_data:

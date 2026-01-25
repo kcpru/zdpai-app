@@ -1,0 +1,241 @@
+/* Todo List Container */
+.todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 1rem;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--md-primary-rgb), 0.05) 0%,
+    rgba(var(--md-primary-rgb), 0.03) 100%
+  );
+  border: 2px solid rgba(var(--md-primary-rgb), 0.2);
+  border-radius: 16px;
+}
+
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid rgba(var(--md-primary-rgb), 0.2);
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.todo-item:last-of-type {
+  border-bottom: none;
+}
+
+.todo-item:hover {
+  background-color: rgba(var(--md-primary-rgb), 0.1);
+}
+
+/* Custom Checkbox */
+.checkbox-wrapper input[type="checkbox"] {
+  display: none;
+  visibility: hidden;
+}
+
+.checkbox-wrapper label {
+  display: inline-block;
+}
+
+.checkbox-wrapper .cbx {
+  position: relative;
+  top: 1px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  border: 2px solid var(--md-outline);
+  border-radius: 4px;
+  vertical-align: middle;
+  transition:
+    background 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  background: rgba(var(--md-primary-rgb), 0.1);
+  box-shadow: 0 2px 8px rgba(var(--md-primary-rgb), 0.04);
+}
+
+.checkbox-wrapper .cbx:after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 6px;
+  width: 5px;
+  height: 11px;
+  opacity: 0;
+  transform: rotate(45deg) scale(0);
+  border-right: 2px solid var(--md-on-primary);
+  border-bottom: 2px solid var(--md-on-primary);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition-delay: 0.15s;
+}
+
+.checkbox-wrapper input[type="checkbox"]:checked ~ .cbx {
+  border-color: transparent;
+  background: var(--accent-primary);
+  box-shadow: 0 2px 8px rgba(var(--md-primary-rgb), 0.1);
+}
+
+.checkbox-wrapper.dopamine input[type="checkbox"]:checked ~ .cbx {
+  animation: jelly 0.6s ease;
+}
+
+.checkbox-wrapper input[type="checkbox"]:checked ~ .cbx:after {
+  opacity: 1;
+  transform: rotate(45deg) scale(1);
+}
+
+@keyframes jelly {
+  from {
+    transform: scale(1, 1);
+  }
+  30% {
+    transform: scale(1.25, 0.75);
+  }
+  40% {
+    transform: scale(0.75, 1.25);
+  }
+  50% {
+    transform: scale(1.15, 0.85);
+  }
+  65% {
+    transform: scale(0.95, 1.05);
+  }
+  75% {
+    transform: scale(1.05, 0.95);
+  }
+  to {
+    transform: scale(1, 1);
+  }
+}
+
+.todo-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.todo-text {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.todo-text.completed {
+  color: var(--text-secondary);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.todo-description {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.no-todos {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.no-todos-icon {
+  font-size: 3rem;
+  opacity: 0.5;
+  color: var(--text-secondary);
+}
+
+.no-todos-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.no-todos-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.no-todos-subtitle {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0;
+  font-weight: 400;
+}
+
+.loading-todos {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+}
+
+.todo-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.todo-item:hover .todo-actions {
+  opacity: 1;
+}
+
+/* Keep ripple wrapper scoped; global ripple styles live in index.scss */
+.search-container .input-with-ripple {
+  flex: 1; /* Ensure wrapper expands so .search-input can be 100% width */
+}
+
+.button-group {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: flex-start;
+
+  .add-btn,
+  .share-btn {
+    flex: 0 0 auto;
+    min-width: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .controls {
+    margin-bottom: 1rem;
+  }
+
+  .filter-toggle-group {
+    width: 100%;
+  }
+
+  .filter-toggle {
+    flex: 1;
+  }
+
+  .todo-actions {
+    opacity: 1;
+  }
+
+  .button-group {
+    gap: 1rem;
+    margin-top: 1rem;
+
+    .add-btn,
+    .share-btn {
+      flex: 0 0 auto;
+    }
+  }
+}

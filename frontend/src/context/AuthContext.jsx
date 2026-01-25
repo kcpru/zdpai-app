@@ -1,0 +1,502 @@
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
+
+const AuthContext = createContext();
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const avatarObjectUrlRef = useRef("");
+
+  // Load token from localStorage on mount
+  useEffect(() => {
+    const savedToken = localStorage.getItem("token");
+    if (savedToken) {
+      setToken(savedToken);
+      // Verify token is still valid
+      fetchMe(savedToken);
+    } else {
+      sessionStorage.removeItem("todo2_welcome_modal_hide_session");
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchMe = async (authToken) => {
+    try {
+      const response = await fetch(`${API_URL}/user/me`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data);
+        // Fetch avatar
+        fetchAvatarUrl(authToken);
+      } else {
+        // Token is invalid
+        localStorage.removeItem("token");
+        setToken(null);
+        setUser(null);
+        setAvatarUrl("");
+      }
+    } catch (err) {
+      console.error("Failed to fetch user:", err);
+      localStorage.removeItem("token");
+      setToken(null);
+      setUser(null);
+      setAvatarUrl("");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAvatarUrl = useCallback(
+    async (authToken = token) => {
+      if (!authToken && !token) {
+        if (avatarObjectUrlRef.current) {
+          URL.revokeObjectURL(avatarObjectUrlRef.current);
+          avatarObjectUrlRef.current = "";
+        }
+        setAvatarUrl("");
+        return;
+      }
+      try {
+        const url = `${API_URL}/user/me/avatar`;
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${authToken || token}` },
+        });
+        if (res.status === 200) {
+          const blob = await res.blob();
+          if (avatarObjectUrlRef.current) {
+            URL.revokeObjectURL(avatarObjectUrlRef.current);
+          }
+          const objectUrl = URL.createObjectURL(blob);
+          avatarObjectUrlRef.current = objectUrl;
+          setAvatarUrl(objectUrl);
+        } else {
+          if (avatarObjectUrlRef.current) {
+            URL.revokeObjectURL(avatarObjectUrlRef.current);
+            avatarObjectUrlRef.current = "";
+          }
+          setAvatarUrl("");
+        }
+      } catch {
+        if (avatarObjectUrlRef.current) {
+          URL.revokeObjectURL(avatarObjectUrlRef.current);
+          avatarObjectUrlRef.current = "";
+        }
+        setAvatarUrl("");
+      }
+    },
+    [token]
+  );
+
+  const register = async (username, email, password) => {
+    setError(null);
+    try {
+      const response = await fetch(`${API_URL}/user/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, email, password }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Registration failed");
+      }
+
+      const data = await response.json();
+      localStorage.setItem("token", data.accessToken);
+      setToken(data.accessToken);
+
+      // Fetch user data after registration
+      await fetchMe(data.accessToken);
+      return true;
+    } catch (err) {
+      setError(err.message);
+      return false;
+    }
+  };
+
+  const login = async (usernameOrEmail, password) => {
+    sessionStorage.removeItem("todo2_welcome_modal_hide_session");
+    setError(null);
+    try {
+      const response = await fetch(`${API_URL}/user/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ usernameOrEmail, password }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Login failed");
+      }
+
+      const data = await response.json();
+      localStorage.setItem("token", data.accessToken);
+      setToken(data.accessToken);
+
+      // Fetch user data after login
+      await fetchMe(data.accessToken);
+      return true;
+    } catch (err) {
+      setError(err.message);
+      return false;
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    setToken(null);
+    setUser(null);
+    if (avatarObjectUrlRef.current) {
+      URL.revokeObjectURL(avatarObjectUrlRef.current);
+      avatarObjectUrlRef.current = "";
+    }
+    setAvatarUrl("");
+    setError(null);
+  };
+
+  const updateProfile = async (updates) => {
+    // updates: { username, email }
+    try {
+      if (!token) throw new Error("Not authenticated");
+      const response = await fetch(`${API_URL}/user/me`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          username: updates.username,
+          email: updates.email,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to update profile");
+      }
+
+      const data = await response.json();
+      setUser(data);
+      fetchAvatarUrl();
+      return { ok: true, data };
+    } catch (err) {
+      console.error("updateProfile failed:", err);
+      // fallback: update locally
+      setUser((u) => ({ ...(u || {}), ...updates }));
+      fetchAvatarUrl();
+      return { ok: false, error: err.message };
+    }
+  };
+
+  const changePassword = async (currentPassword, newPassword) => {
+    try {
+      if (!token) throw new Error("Not authenticated");
+      const response = await fetch(`${API_URL}/user/change-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to change password");
+      }
+
+      return { ok: true };
+    } catch (err) {
+      console.error("changePassword failed:", err);
+      return { ok: false, error: err.message };
+    }
+  };
+
+  // Todo Lists API
+  const getLists = async () => {
+    try {
+      const response = await fetch(`${API_URL}/todo/lists`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch lists");
+      return await response.json();
+    } catch (err) {
+      console.error("Error fetching lists:", err);
+      throw err;
+    }
+  };
+
+  const getList = async (listId) => {
+    try {
+      const response = await fetch(`${API_URL}/todo/lists/${listId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch list");
+      return await response.json();
+    } catch (err) {
+      console.error("Error fetching list:", err);
+      throw err;
+    }
+  };
+
+  const createList = async (name) => {
+    try {
+      const response = await fetch(`${API_URL}/todo/lists`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name }),
+      });
+      if (!response.ok) throw new Error("Failed to create list");
+      return await response.json();
+    } catch (err) {
+      console.error("Error creating list:", err);
+      throw err;
+    }
+  };
+
+  const updateList = async (listId, name) => {
+    try {
+      const response = await fetch(`${API_URL}/todo/lists/${listId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name }),
+      });
+      if (!response.ok) throw new Error("Failed to update list");
+      return await response.json();
+    } catch (err) {
+      console.error("Error updating list:", err);
+      throw err;
+    }
+  };
+
+  const deleteList = async (listId) => {
+    try {
+      const response = await fetch(`${API_URL}/todo/lists/${listId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to delete list");
+    } catch (err) {
+      console.error("Error deleting list:", err);
+      throw err;
+    }
+  };
+
+  // Todo Tasks API
+  const getTasks = async (listId) => {
+    try {
+      const response = await fetch(`${API_URL}/todo/lists/${listId}/tasks`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch tasks");
+      return await response.json();
+    } catch (err) {
+      console.error("Error fetching tasks:", err);
+      throw err;
+    }
+  };
+
+  const createTask = async (listId, title, description) => {
+    try {
+      const response = await fetch(`${API_URL}/todo/lists/${listId}/tasks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title, description }),
+      });
+      if (!response.ok) throw new Error("Failed to create task");
+      return await response.json();
+    } catch (err) {
+      console.error("Error creating task:", err);
+      throw err;
+    }
+  };
+
+  const updateTask = async (taskId, title, description, isCompleted) => {
+    try {
+      const response = await fetch(`${API_URL}/todo/tasks/${taskId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title, description, isCompleted }),
+      });
+      if (!response.ok) throw new Error("Failed to update task");
+      return await response.json();
+    } catch (err) {
+      console.error("Error updating task:", err);
+      throw err;
+    }
+  };
+
+  const patchTask = async (taskId, isCompleted) => {
+    try {
+      const response = await fetch(`${API_URL}/todo/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ isCompleted }),
+      });
+      if (!response.ok) throw new Error("Failed to patch task");
+      return await response.json();
+    } catch (err) {
+      console.error("Error patching task:", err);
+      throw err;
+    }
+  };
+
+  const deleteTask = async (taskId) => {
+    try {
+      const response = await fetch(`${API_URL}/todo/tasks/${taskId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to delete task");
+    } catch (err) {
+      console.error("Error deleting task:", err);
+      throw err;
+    }
+  };
+
+  const adminListUsers = async () => {
+    try {
+      const response = await fetch(`${API_URL}/admin/users`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch users");
+      return await response.json();
+    } catch (err) {
+      console.error("Error fetching users:", err);
+      throw err;
+    }
+  };
+
+  const adminUpdateUser = async (userId, updates) => {
+    try {
+      const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updates),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || "Failed to update user");
+      }
+      return await response.json();
+    } catch (err) {
+      console.error("Error updating user:", err);
+      throw err;
+    }
+  };
+
+  const adminDeleteUser = async (userId) => {
+    try {
+      const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || "Failed to delete user");
+      }
+      return true;
+    } catch (err) {
+      console.error("Error deleting user:", err);
+      throw err;
+    }
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        loading,
+        error,
+        register,
+        login,
+        logout,
+        updateProfile,
+        changePassword,
+        isAuthenticated: !!user && !!token,
+        getLists,
+        getList,
+        createList,
+        updateList,
+        deleteList,
+        getTasks,
+        createTask,
+        updateTask,
+        patchTask,
+        deleteTask,
+        adminListUsers,
+        adminUpdateUser,
+        adminDeleteUser,
+        // coins system removed
+        avatarUrl,
+        setAvatarUrl,
+        fetchAvatarUrl,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+  return context;
+}

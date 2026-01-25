@@ -1,0 +1,33 @@
+.post-card {
+  background: var(--bg-primary);
+  border: 2px solid rgba(var(--md-primary-rgb), 0.2);
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  will-change: transform;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  position: relative;
+  z-index: 1;
+
+  &:not(.is-selected):hover {
+    border-color: rgba(var(--md-primary-rgb), 0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  &.is-selected {
+    pointer-events: none;
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+    opacity: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .post-card {
+    padding: 1rem;
+  }
+}

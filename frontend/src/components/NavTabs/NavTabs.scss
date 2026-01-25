@@ -1,0 +1,13 @@
+.nav-tabs-header {
+  display: flex;
+  gap: 1.2rem;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+@media (max-width: 768px) {
+  .nav-tabs-header {
+    width: 100%;
+    gap: 0rem;
+  }
+}

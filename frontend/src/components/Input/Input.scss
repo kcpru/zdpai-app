@@ -1,0 +1,75 @@
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  min-height: 24px;
+  box-sizing: border-box;
+  border: 2px solid rgba(var(--md-primary-rgb), 0.2);
+  border-radius: 12px;
+  background: rgba(var(--md-primary-rgb), 0.05);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 1rem;
+  transition:
+    border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.7;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: rgba(var(--md-primary-rgb), 0.5);
+  }
+
+  &:hover {
+    border-color: rgba(var(--md-primary-rgb), 0.3);
+  }
+}
+
+textarea.search-input {
+  resize: vertical;
+  min-height: 120px;
+  line-height: 1.5;
+}
+
+.input-with-ripple {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+
+  .search-input {
+    position: relative;
+    z-index: 2;
+  }
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 0.7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  z-index: 3;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.character-counter {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background: rgba(var(--bg-primary-rgb, 0), 0.8);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 3;
+}

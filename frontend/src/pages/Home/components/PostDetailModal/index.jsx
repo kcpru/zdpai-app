@@ -1,0 +1,306 @@
+import confetti from "canvas-confetti";
+import { motion, useAnimationControls } from "motion/react";
+import { useEffect, useRef, useState } from "react";
+import { MdFavorite, MdSend } from "react-icons/md";
+
+import { Button } from "@components/Button";
+import { Input } from "@components/Input";
+import { ModalForm } from "@components/ModalForm";
+import { useDopamine } from "@context/DopamineContext";
+import { usePostsAPI } from "@hooks/usePostsAPI";
+
+import { Comment } from "../Comment";
+import { PostContent } from "../PostContent";
+
+import "./PostDetailModal.scss";
+
+export function PostDetailModal({ post, isOpen, onClose, onPostUpdate }) {
+  const { isDopamineMode, confettiCount, animationSpeed } = useDopamine();
+  const [commentText, setCommentText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [commentLikes, setCommentLikes] = useState({});
+  const [rippleEffects, setRippleEffects] = useState([]);
+  const [likesCount, setLikesCount] = useState(post?.likesCount || 0);
+  const [isLiked, setIsLiked] = useState(!!post?.isLiked);
+  const lastCommentLikeRef = useRef({});
+  const likeButtonRef = useRef(null);
+  const confettiInstanceRef = useRef(null);
+  const confettiCanvasRef = useRef(null);
+  const likeAnimationControls = useAnimationControls();
+  const { commentOnPost, likePost, likeComment, unlikePost } = usePostsAPI();
+
+  useEffect(() => {
+    return () => {
+      if (confettiCanvasRef.current) {
+        confettiCanvasRef.current.remove();
+        confettiCanvasRef.current = null;
+        confettiInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  const fireConfetti = (x, y) => {
+    const speedMap = {
+      fast: { startVelocity: 18, decay: 0.9, delay: 120 },
+      slow: { startVelocity: 10, decay: 0.97, delay: 350 },
+    };
+    const speed = speedMap[animationSpeed] || speedMap.fast;
+    if (!confettiInstanceRef.current) {
+      const canvas = document.createElement("canvas");
+      canvas.style.position = "fixed";
+      canvas.style.left = "0";
+      canvas.style.top = "0";
+      canvas.style.width = "100vw";
+      canvas.style.height = "100vh";
+      canvas.style.pointerEvents = "none";
+      canvas.style.zIndex = "12000";
+      document.body.appendChild(canvas);
+      confettiCanvasRef.current = canvas;
+      confettiInstanceRef.current = confetti.create(canvas, {
+        resize: true,
+        useWorker: true,
+      });
+    }
+
+    const normalizedX = x / window.innerWidth;
+    const normalizedY = y / window.innerHeight;
+
+    const palette = ["#4355b9", "#5a6cc3", "#b8c3ff", "#dde1ff", "#ffffff"];
+    const shapes = ["square", "circle", "star"];
+
+    confettiInstanceRef.current({
+      particleCount: Math.max(1, Math.round(confettiCount)),
+      spread: 320,
+      startVelocity: speed.startVelocity,
+      decay: speed.decay,
+      scalar: 0.75,
+      gravity: 0.8,
+      origin: { x: normalizedX, y: normalizedY },
+      shapes,
+      colors: palette,
+    });
+
+    setTimeout(() => {
+      confettiInstanceRef.current?.({
+        particleCount: Math.max(1, Math.round(confettiCount * 0.57)),
+        spread: 320,
+        startVelocity: speed.startVelocity * 0.7,
+        decay: speed.decay + 0.03,
+        scalar: 0.65,
+        gravity: 0.8,
+        origin: { x: normalizedX, y: normalizedY },
+        shapes,
+        colors: palette,
+      });
+    }, speed.delay);
+  };
+
+  const handleSubmitComment = async () => {
+    if (!commentText.trim() || submitting) return;
+
+    try {
+      setSubmitting(true);
+      await commentOnPost(post.id, commentText);
+      setCommentText("");
+      if (onPostUpdate) {
+        await onPostUpdate(post.id);
+      }
+    } catch (error) {
+      console.error("Failed to submit comment:", error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    setLikesCount(post?.likesCount || 0);
+    setIsLiked(!!post?.isLiked);
+  }, [post?.id]);
+
+  const handleLike = async () => {
+    try {
+      likeAnimationControls.start({
+        scale: [1, 1.7, 1.05, 1],
+        rotate: [0, -12, 2, 0],
+        y: [0, -4, -2, 0],
+        transition: {
+          duration: 0.5,
+          times: [0, 0.42, 0.72, 1],
+          ease: [0.16, 1, 0.3, 1],
+        },
+      });
+
+      if (likeButtonRef.current) {
+        const buttonElement =
+          likeButtonRef.current.querySelector("button") ||
+          likeButtonRef.current;
+        const rect = buttonElement.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        fireConfetti(x, y);
+      }
+
+      setLikesCount((c) => c + 1);
+      setIsLiked(true);
+
+      await likePost(post.id);
+
+      if (onPostUpdate) {
+        await onPostUpdate(post.id);
+      }
+    } catch (error) {
+      console.error("Failed to like post:", error);
+      // Rollback optimistic increment
+      setLikesCount((c) => Math.max(0, c - 1));
+    }
+  };
+
+  const handleDoubleTap = async (commentId, x, y) => {
+    const now = Date.now();
+    const last = lastCommentLikeRef.current[commentId] || 0;
+    if (now - last < 350) return;
+    lastCommentLikeRef.current[commentId] = now;
+
+    setCommentLikes((prev) => ({
+      ...prev,
+      [commentId]: (prev[commentId] || 0) + 1,
+    }));
+
+    const rippleId = Date.now();
+    setRippleEffects((prev) => [...prev, { id: rippleId, x, y, commentId }]);
+
+    setTimeout(() => {
+      setRippleEffects((prev) => prev.filter((r) => r.id !== rippleId));
+    }, 1000);
+
+    try {
+      await likeComment(commentId);
+      if (onPostUpdate) {
+        await onPostUpdate(post.id);
+      }
+      setCommentLikes((prev) => {
+        if (!prev[commentId]) return prev;
+        const next = { ...prev };
+        delete next[commentId];
+        return next;
+      });
+    } catch (error) {
+      setCommentLikes((prev) => ({
+        ...prev,
+        [commentId]: Math.max(0, (prev[commentId] || 0) - 1),
+      }));
+      console.error("Failed to like comment:", error);
+    }
+  };
+
+  if (!post) return null;
+
+  return (
+    <>
+      <ModalForm
+        isOpen={isOpen}
+        onClose={onClose}
+        size="lg"
+        title={`Todo: ${post.id.slice(0, 8)}`}
+        showFooter={false}
+        showCloseButton={true}
+        layoutId={`post-${post.id}`}
+      >
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3, delay: 0.15, ease: [0.4, 0, 0.2, 1] }}
+        >
+          <PostContent
+            post={{ ...post, likesCount, isLiked }}
+            onLike={handleLike}
+            showCommentButton={false}
+            mode="modal"
+            likeButtonRef={likeButtonRef}
+            likeAnimationControls={likeAnimationControls}
+          />
+        </motion.div>
+
+        <motion.div
+          className="post-detail-comments-section"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.35, ease: [0.4, 0, 0.2, 1] }}
+        >
+          <h3 className="comments-title">
+            Comments ({post.comments?.length || 0})
+          </h3>
+
+          <Input
+            isTextarea
+            containerClassName="comment-input-wrapper"
+            className="comment-textarea"
+            placeholder="Write a comment..."
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            characterLimit={500}
+            rows={3}
+            disabled={submitting}
+          >
+            <Button
+              size="sm"
+              icon={<MdSend />}
+              onClick={handleSubmitComment}
+              disabled={!commentText.trim() || submitting}
+              className="comment-submit-btn"
+            >
+              {submitting ? "..." : ""}
+            </Button>
+          </Input>
+
+          <div className="post-detail-comments">
+            {post.comments && post.comments.length > 0 ? (
+              post.comments.map((comment, index) => {
+                const extraLikes = commentLikes[comment.id] || 0;
+                const totalLikes = (comment.likesCount || 0) + extraLikes;
+                const commentRipples = rippleEffects.filter(
+                  (r) => r.commentId === comment.id
+                );
+
+                return (
+                  <motion.div
+                    key={comment.id}
+                    style={{ position: "relative" }}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      duration: 0.25,
+                      delay: 0.4 + 0.08 * index,
+                      ease: [0.4, 0, 0.2, 1],
+                    }}
+                  >
+                    <Comment
+                      comment={{ ...comment, likesCount: totalLikes }}
+                      onDoubleTap={handleDoubleTap}
+                    />
+                    {commentRipples.map((ripple) => (
+                      <div
+                        key={ripple.id}
+                        className="comment-ripple"
+                        style={{
+                          left: ripple.x,
+                          top: ripple.y,
+                        }}
+                      >
+                        <MdFavorite />
+                      </div>
+                    ))}
+                  </motion.div>
+                );
+              })
+            ) : (
+              <div className="no-comments">
+                No comments yet. Be the first to comment!
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </ModalForm>
+    </>
+  );
+}

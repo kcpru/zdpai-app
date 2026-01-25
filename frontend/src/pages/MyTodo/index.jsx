@@ -1,0 +1,204 @@
+import { useTour } from "@reactour/tour";
+import { AnimatePresence, motion } from "motion/react";
+import { useState, useCallback, useEffect } from "react";
+import {
+  MdFormatListBulleted,
+  MdRadioButtonUnchecked,
+  MdCheckCircle,
+  MdSearch,
+} from "react-icons/md";
+import { Route, Routes } from "react-router-dom";
+
+import { getMotivationMessage } from "@api/motivation";
+import { FilterSelect } from "@components/FilterSelect";
+import { Input } from "@components/Input";
+import { ANIMATION_CONFIG } from "@constants/animations";
+import { useNotifications } from "@context/NotificationsContext";
+import { useTodo } from "@context/TodoContext";
+import { usePostsAPI } from "@hooks/usePostsAPI";
+
+import Stats from "../Stats";
+
+import { DopamineVideo } from "./components/DopamineVideo";
+import { EditModal } from "./components/EditModal";
+import { SharePostModal } from "./components/SharePostModal";
+import { TodoList } from "./components/TodoList";
+import "./MyTodo.scss";
+
+function MyTodo() {
+  const { setIsOpen } = useTour();
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const seenTour = localStorage.getItem("todo2_seen_tour");
+      if (!seenTour) {
+        setTimeout(() => setIsOpen(true), 600); // slight delay for UI mount
+        localStorage.setItem("todo2_seen_tour", "1");
+      }
+    }
+  }, [setIsOpen]);
+  const {
+    lists,
+    selectedListId,
+    todos,
+    filter,
+    searchTerm,
+    editingId,
+    editingText,
+    editingDescription,
+    loadingTodos,
+    toggleTodo,
+    deleteTodo,
+    addTodo,
+    startEdit,
+    saveEdit,
+    cancelEdit,
+    filteredTodos,
+    setFilter,
+    setSearchTerm,
+    setEditingText,
+    setEditingDescription,
+    registerCheckboxPosition,
+  } = useTodo();
+  const { createPost } = usePostsAPI();
+  const { notify } = useNotifications();
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [isCreatingPost, setIsCreatingPost] = useState(false);
+
+  const selectedList = lists.find((l) => l.id === selectedListId);
+
+  const completedCount = todos.filter((t) => t.isCompleted).length;
+  const totalCount = todos.length;
+
+  const handleShareClick = useCallback(() => {
+    setShareModalOpen(true);
+  }, []);
+
+  const handleSharePost = useCallback(
+    async (content) => {
+      if (!selectedList) {
+        notify({ message: "No list selected", type: "error" });
+        return;
+      }
+
+      try {
+        setIsCreatingPost(true);
+        await createPost(selectedList.id, content);
+        notify({ message: "Post shared!", type: "success" });
+        setShareModalOpen(false);
+      } catch (err) {
+        console.error("Failed to share post:", err);
+        notify({ message: "Failed to share post", type: "error" });
+      } finally {
+        setIsCreatingPost(false);
+      }
+    },
+    [selectedList, createPost, notify]
+  );
+
+  const filters = [
+    { value: "ALL", label: "All", icon: <MdFormatListBulleted /> },
+    { value: "ACTIVE", label: "Active", icon: <MdRadioButtonUnchecked /> },
+    { value: "COMPLETED", label: "Done", icon: <MdCheckCircle /> },
+  ];
+
+  // Motywacyjne powiadomienie po ukończeniu wszystkich zadań
+  function handleAllTodosCompleted(todoId, filteredTodos) {
+    const todo = filteredTodos.find((t) => t.id === todoId);
+    const allCompleted = filteredTodos.every((t) =>
+      t.id === todoId ? !todo.isCompleted : t.isCompleted
+    );
+    if (allCompleted && filteredTodos.length > 0) {
+      getMotivationMessage(todo?.title || "").then((msg) => {
+        if (msg) notify({ message: msg, type: "motivation", duration: 6000 });
+      });
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    window.onAllTodosCompleted = handleAllTodosCompleted;
+  }
+
+  return (
+    <div className="app-todo-wrapper">
+      {selectedList && (
+        <div className="controls">
+          <div className="search-container">
+            <Input
+              withRipple
+              type="text"
+              placeholder="Search task..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <span className="search-icon">
+              <MdSearch />
+            </span>
+          </div>
+
+          <div className="filter-select-wrapper">
+            <FilterSelect
+              options={filters}
+              value={filter}
+              onChange={setFilter}
+              ariaLabel="Filter tasks"
+            />
+          </div>
+        </div>
+      )}
+
+      <AnimatePresence mode="wait">
+        {selectedList ? (
+          <motion.div
+            key={selectedList.id}
+            {...ANIMATION_CONFIG.pageTransition}
+          >
+            <TodoList
+              todos={todos}
+              filteredTodos={filteredTodos}
+              loadingTodos={loadingTodos}
+              onToggleTodo={toggleTodo}
+              onDeleteTodo={deleteTodo}
+              onStartEdit={startEdit}
+              onAddTodo={addTodo}
+              registerCheckboxPosition={registerCheckboxPosition}
+              onShare={handleShareClick}
+              selectedListName={selectedList.name}
+              completedCount={completedCount}
+              totalCount={totalCount}
+            />
+          </motion.div>
+        ) : (
+          <div className="empty-state empty-state-no-selection">
+            <div className="empty-icon">📋</div>
+            <h2>No List Selected</h2>
+            <p>Select or create a list from the sidebar to get started</p>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <EditModal
+        editingId={editingId}
+        editingText={editingText}
+        editingDescription={editingDescription}
+        onEditTextChange={setEditingText}
+        onEditDescriptionChange={setEditingDescription}
+        onSave={saveEdit}
+        onCancel={cancelEdit}
+      />
+
+      <SharePostModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        todoListName={selectedList?.name || ""}
+        completedCount={completedCount}
+        totalCount={totalCount}
+        onShare={handleSharePost}
+        isLoading={isCreatingPost}
+      />
+
+      <DopamineVideo />
+    </div>
+  );
+}
+
+export default MyTodo;

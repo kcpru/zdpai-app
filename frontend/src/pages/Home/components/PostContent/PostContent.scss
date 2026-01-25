@@ -1,0 +1,87 @@
+.post-content-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.post-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.post-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.post-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.post-time {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.post-text {
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.post-todo-section {
+  margin-bottom: 1rem;
+}
+
+.post-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.post-stats {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.post-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.post-stat-liked {
+  color: var(--md-primary);
+  font-weight: 600;
+}
+
+.post-stat-commented {
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.post-stat-clickable {
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    transform 0.12s ease;
+}
+.post-stat-clickable:hover {
+  color: var(--md-primary);
+  transform: translateY(-2px);
+}
+
+@media (max-width: 600px) {
+  .post-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
